@@ -123,8 +123,8 @@ namespace Tailer.Tests
                     called = true;
                 }
             };
-            StringWriter stderr = new StringWriter();
-            Tailer tailer = new Tailer(logName, callback, null, stderr);
+
+            Tailer tailer = new Tailer(logName, callback, null, null);
             tailer.Start();
 
             testLog.WriteEntry(lastMessage);
