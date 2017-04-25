@@ -57,12 +57,20 @@
   <ItemGroup>
     <Compile Include="ForwarderSpec.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SimpleUDPServer.cs" />
+    <Compile Include="SimpleUDPServerSpec.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Service Include="{82A7F48D-3B50-4B1E-B82E-3ADA8210C358}" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Forwarder\Forwarder.csproj">
+      <Project>{8f01aa7a-1bb1-4dd8-ba9f-28591ac8d959}</Project>
+      <Name>Forwarder</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">

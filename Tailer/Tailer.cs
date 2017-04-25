@@ -45,12 +45,6 @@ namespace Tailer
             this.stderr = stderr;
         }
 
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
         protected virtual void Dispose(bool disposing)
         {
             if (disposing && !this.disposed)
@@ -58,6 +52,12 @@ namespace Tailer
                 this.disposed = true;
                 log.Dispose();
             }
+            this.disposed = true;
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
         }
 
         public void Start()

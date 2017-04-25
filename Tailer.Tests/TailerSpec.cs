@@ -105,12 +105,6 @@ namespace Tailer.Tests
         [Fact]
         public void OnlyReadsNewEventsTest()
         {
-            string oldLogMessage = Guid.NewGuid().ToString();
-            for (int i = 0; i < 5; i++)
-            {
-                testLog.WriteEntry(oldLogMessage);
-            }
-
             const string lastMessage = "last message";
 
             bool called = false;
@@ -124,19 +118,33 @@ namespace Tailer.Tests
                 }
             };
 
-            Tailer tailer = new Tailer(logName, callback, null, null);
-            tailer.Start();
-
-            testLog.WriteEntry(lastMessage);
-
-            int count = 0;
-            while (!called && count++ < 10)
+            using (Tailer tailer = new Tailer(logName, callback, null, null))
             {
-                Thread.Sleep(250);
-            }
-            Assert.True(count < 10);
+                string oldLogMessage = Guid.NewGuid().ToString();
+                for (int i = 0; i < 5; i++)
+                {
+                    testLog.WriteEntry(oldLogMessage);
+                }
 
-            Assert.Equal(1, msgs.Count);
+                //Tailer tailer = new Tailer(logName, callback, null, null);
+                tailer.Start();
+
+                testLog.WriteEntry(lastMessage);
+
+                int count = 0;
+                while (!called && count++ < 40)
+                {
+                    Thread.Sleep(250);
+                }
+                Assert.True(count < 10);
+
+                Assert.Equal(1, msgs.Count);
+            }
         }
+
+        // [Fact]
+        // public void WhenEventLogIsFullTest()
+        // {
+        // }
     }
 }
