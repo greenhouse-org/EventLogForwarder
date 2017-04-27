@@ -42,6 +42,14 @@
   <ItemGroup>
     <Compile Include="Forwarder.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="TCPForwarder.cs" />
+    <Compile Include="UDPForwarder.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Tailer\Tailer.csproj">
+      <Project>{A10C87B0-142D-446C-8F08-8463B909EC25}</Project>
+      <Name>Tailer</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

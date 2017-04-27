@@ -13,6 +13,7 @@ namespace Forwarder.Tests
         private UdpClient client;
         private DatagramReceiveHandler handler;
         private IPEndPoint localIPEndPoint;
+        private Encoding encoding;
         private Thread serverThread;
         private bool running = false;
         private bool disposed = false;
@@ -24,7 +25,7 @@ namespace Forwarder.Tests
                 try
                 {
                     Byte[] receiveBytes = client.Receive(ref localIPEndPoint);
-                    this.handler(Encoding.Unicode.GetString(receiveBytes));
+                    this.handler(encoding.GetString(receiveBytes));
                 }
                 catch (SocketException)
                 {
@@ -43,7 +44,8 @@ namespace Forwarder.Tests
             running = true;
             serverThread = new Thread(startServer);
             serverThread.Start();
-            // Spin until the thread is alive
+
+            // Spin until the thread is alive            
             while (!serverThread.IsAlive) ;
         }
 
@@ -80,10 +82,16 @@ namespace Forwarder.Tests
         }
 
         public SimpleUDPServer(int port, DatagramReceiveHandler handler)
+            : this(port, handler, Encoding.Unicode)
+        {
+        }
+
+        public SimpleUDPServer(int port, DatagramReceiveHandler handler, Encoding encoding)
         {
             client = new UdpClient(port);
-            localIPEndPoint = new IPEndPoint(IPAddress.Loopback, 0);
+            localIPEndPoint = new IPEndPoint(IPAddress.Loopback, port);
             this.handler = handler;
+            this.encoding = encoding;
         }
     }
 }

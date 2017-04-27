@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -16,8 +17,25 @@ namespace Forwarder.Tests
 
         public void Dispose() { }
 
-        //[Fact]
-        //public void 
+        // **TESTS TO IMPLEMENT**
+        // 
+        // Formatter
+        // 
+        // Critical:
+        // - Multiline messages (this may require discusion)
+        //   - Potential workaround (encode the message in JSON)
+        //
+        // Important
+        // - Header is ASCII - no unicode - no control chars
+        // - Truncate Length based on transport
+        // - Include source and timestamp in structured data
+        // - Enforce length limits on header elements
+        // - Set Syslog Level/Priority based on EventLogEvent Information level (DONE)
+        //
+        // Forwarder
+        // 
+        // - Rate limit
+        //
 
         // FormatTest
         //  no extra newline
@@ -37,84 +55,6 @@ namespace Forwarder.Tests
         // syslog.resume_interval (bad connections)
 
         // Perf
-
-        /*
-    [Fact]
-    public void UDPWriteTest()
-    {
-
-    }
-    */
-
-        /* [Fact]
-        public void TCPWriteTest()
-        {
-
-        } */
-
-        struct SyslogEntry
-        {
-            public Forwarder.Priority Priority;
-            public char Version;
-            public DateTime Timestamp;
-            public string Hostname;
-            public string AppName;
-            public string MessageID;
-            public int Pid;
-            public string Message;
-        }
-
-        private SyslogEntry ParseSyslogMessage(byte[] msg)
-        {
-            string s = Encoding.UTF8.GetString(msg);
-            SyslogEntry entry = new SyslogEntry { };
-
-            // PRI
-            if (s[0] != '<')
-            {
-                throw new Exception("Invalid message: " + s);
-            }
-            s = s.Substring(1);
-            int n = s.IndexOf('>');
-            entry.Priority = (Forwarder.Priority)int.Parse(s.Substring(0, n));
-
-            // Skip Syslog version if any "<PRI>VERSION"
-            s = s.Substring(n + 1);
-            entry.Version = s[0];
-            s = s.Substring(1).TrimStart();
-
-            // Timestamp
-            n = s.IndexOf(" ");
-            string timestamp = s.Substring(0, n);
-            entry.Timestamp = XmlConvert.ToDateTime(timestamp, XmlDateTimeSerializationMode.Utc);
-            s = s.Substring(n + 1).TrimStart();
-
-            // HOSTNAME
-            n = s.IndexOf(" ");
-            entry.Hostname = s.Substring(0, n);
-            s = s.Substring(n + 1).TrimStart();
-
-            // hostname "app name"
-
-            // App-Name
-            n = s.IndexOf(" ");
-            entry.AppName = s.Substring(0, n);
-            s = s.Substring(n + 1).TrimStart();
-
-            // PID
-            n = s.IndexOf(" ");
-            entry.Pid = int.Parse(s.Substring(0, n));
-            s = s.Substring(n + 1).TrimStart();
-
-            // MessageID
-            n = s.IndexOf(" ");
-            entry.MessageID = s.Substring(0, n);
-            s = s.Substring(n + 1).TrimStart();
-
-            entry.Message = s.TrimStart();
-
-            return entry;
-        }
 
         [Fact]
         public void EndsWithNewlineTest()
@@ -220,14 +160,41 @@ namespace Forwarder.Tests
         }
 
         [Fact]
-        public void BOMTest()
+        public void UTF8BOMTest()
         {
-            const string message = "foo";
+            // Ensure the UTF-8 BOM precedes the message section of the log record.
+            byte[] b = Forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "", "foo");
+
+            Assert.Equal(1, BOMCount(b));
+        }
+
+        [Fact]
+        public void EmptyMessageTest()
+        {
+            // The UTF-8 BOM should not be present when there is no message.
+            byte[] b = Forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "", "");
+            Assert.Equal(0, BOMCount(b));
+        }
+
+        [Fact]
+        public void SimpleMessageTest()
+        {
+            const string message = "hello, world!";
             byte[] formattedMsg = Forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "", message);
+            string actual = Encoding.UTF8.GetString(formattedMsg);
+
+            Assert.EndsWith($"{message}\n", actual);
+        }
+        /// <summary>
+        /// Returns the number of UTF-8 Byte Order Masks (BOM) in byte[] b. 
+        /// </summary>
+        /// <param name="b"></param>
+        /// <returns></returns>
+        private int BOMCount(byte[] b)
+        {
             byte[] BOM = { 0xEF, 0xBB, 0xBF };
 
             int count = 0;
-            byte[] b = formattedMsg;
             for (int i = 0; i < b.Length - BOM.Length; i++)
             {
                 if (b[i + 0] == BOM[0] && b[i + 1] == BOM[1] && b[i + 2] == BOM[2])
@@ -236,41 +203,76 @@ namespace Forwarder.Tests
                     continue;
                 }
             }
-            Assert.Equal(1, count);
+            return count;
         }
 
-        [Fact]
-        public void EmptyMessageTest()
+        /// <summary>
+        /// WARN (CEV): Remove if not used
+        /// Also, structs aren't very idiomatic... 
+        /// </summary>
+        struct SyslogEntry
         {
-            byte[] formattedMsg = Forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "", "");
-            string actual = Encoding.UTF8.GetString(formattedMsg);
-
-            // TODO: make sure BOM is not present if the message is empty
-            Assert.True(false);
+            public Forwarder.Priority Priority;
+            public char Version;
+            public DateTime Timestamp;
+            public string Hostname;
+            public string AppName;
+            public string MessageID;
+            public int Pid;
+            public string Message;
         }
 
-        [Fact]
-        public void MessageTest()
+        // WARN (CEV): Remove if not used
+        private SyslogEntry ParseSyslogMessage(byte[] msg)
         {
-            const string message = "hello, world!";
-            byte[] formattedMsg = Forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "", message);
-            string actual = Encoding.UTF8.GetString(formattedMsg);
+            string s = Encoding.UTF8.GetString(msg);
+            SyslogEntry entry = new SyslogEntry { };
 
-            Assert.EndsWith($"{message}\n", actual);
+            // PRI
+            if (s[0] != '<')
+            {
+                throw new Exception("Invalid message: " + s);
+            }
+            s = s.Substring(1);
+            int n = s.IndexOf('>');
+            entry.Priority = (Forwarder.Priority)int.Parse(s.Substring(0, n));
+
+            // Skip Syslog version if any "<PRI>VERSION"
+            s = s.Substring(n + 1);
+            entry.Version = s[0];
+            s = s.Substring(1).TrimStart();
+
+            // Timestamp
+            n = s.IndexOf(" ");
+            string timestamp = s.Substring(0, n);
+            entry.Timestamp = XmlConvert.ToDateTime(timestamp, XmlDateTimeSerializationMode.Utc);
+            s = s.Substring(n + 1).TrimStart();
+
+            // HOSTNAME
+            n = s.IndexOf(" ");
+            entry.Hostname = s.Substring(0, n);
+            s = s.Substring(n + 1).TrimStart();
+
+            // hostname "app name"
+
+            // App-Name
+            n = s.IndexOf(" ");
+            entry.AppName = s.Substring(0, n);
+            s = s.Substring(n + 1).TrimStart();
+
+            // PID
+            n = s.IndexOf(" ");
+            entry.Pid = int.Parse(s.Substring(0, n));
+            s = s.Substring(n + 1).TrimStart();
+
+            // MessageID
+            n = s.IndexOf(" ");
+            entry.MessageID = s.Substring(0, n);
+            s = s.Substring(n + 1).TrimStart();
+
+            entry.Message = s.TrimStart();
+
+            return entry;
         }
-
-        /*
-        [Fact]
-        public void ForwardedMessageFormatTest()
-        {
-            const string messageText = "syslog message text";
-
-            byte[] formattedMsg = Forwarder.FormatMessage(messageText, Forwarder.Priority.LOG_DEBUG);
-
-            SyslogEntry actual = ParseSyslogMessage(formattedMsg);
-
-            //Assert.Equal()
-        }
-        */
     }
 }

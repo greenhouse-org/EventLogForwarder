@@ -23,28 +23,6 @@ namespace Tailer
         private int index = 0;
         private Object entryLock = new Object();
 
-        public Tailer(string logName, OnEntryWritten callback, TextWriter stdout, TextWriter stderr)
-        {
-            this.log = new EventLog(logName);
-
-            try
-            {
-                // This will trigger an exception if the log does not exist.
-                // Otherwise we don't get an exception until Start(), which
-                // occurs in a Task.
-                int count = log.Entries.Count;
-            }
-            catch
-            {
-                throw new NonexistentEventLogException(String.Format("Event log: '{0}' does not exist", logName));
-            }
-
-            this.LogName = logName;
-            this.entryWrittenCallback = callback;
-            this.stdout = stdout;
-            this.stderr = stderr;
-        }
-
         protected virtual void Dispose(bool disposing)
         {
             if (disposing && !this.disposed)
@@ -63,7 +41,7 @@ namespace Tailer
         public void Start()
         {
             this.index = log.Entries.Count;
-            log.EntryWritten += new EntryWrittenEventHandler(Callback);
+            log.EntryWritten += Callback;
             log.EnableRaisingEvents = true;
         }
 
@@ -97,5 +75,30 @@ namespace Tailer
                 }
             }
         }
+
+        // WARN (CEV): Do we want this thing to be logging???
+        // WARN (CEV): Are we using the stdout and stderr???
+        public Tailer(string logName, OnEntryWritten callback, TextWriter stdout, TextWriter stderr)
+        {
+            this.log = new EventLog(logName);
+
+            try
+            {
+                // This will trigger an exception if the log does not exist.
+                // Otherwise we don't get an exception until Start(), which
+                // occurs in a Task.
+                int count = log.Entries.Count;
+            }
+            catch
+            {
+                throw new NonexistentEventLogException(String.Format("Event log: '{0}' does not exist", logName));
+            }
+
+            this.LogName = logName;
+            this.entryWrittenCallback = callback;
+            this.stdout = stdout;
+            this.stderr = stderr;
+        }
+
     }
 }
