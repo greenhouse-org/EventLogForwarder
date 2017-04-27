@@ -4,7 +4,7 @@ using System.IO;
 
 namespace Tailer
 {
-    public class Tailer : IDisposable
+    public class EventLogSubscription : IDisposable
     {
         public class NonexistentEventLogException : Exception
         {
@@ -78,7 +78,7 @@ namespace Tailer
 
         // WARN (CEV): Do we want this thing to be logging???
         // WARN (CEV): Are we using the stdout and stderr???
-        public Tailer(string logName, OnEntryWritten callback, TextWriter stdout, TextWriter stderr)
+        public EventLogSubscription(string logName, OnEntryWritten callback, TextWriter stdout, TextWriter stderr)
         {
             this.log = new EventLog(logName);
 

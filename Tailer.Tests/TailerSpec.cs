@@ -45,7 +45,7 @@ namespace Tailer.Tests
         [Fact]
         public void NonexistentEventLogTest()
         {
-            Assert.Throws<Tailer.NonexistentEventLogException>(() => { new Tailer("nonexistentlog", (e) => { }, null, null); });
+            Assert.Throws<EventLogSubscription.NonexistentEventLogException>(() => { new EventLogSubscription("nonexistentlog", (e) => { }, null, null); });
         }
 
         [Fact]
@@ -53,12 +53,12 @@ namespace Tailer.Tests
         {
             string actualLogMessage = "";
             bool called = false;
-            Tailer.OnEntryWritten callback = (e) =>
+            EventLogSubscription.OnEntryWritten callback = (e) =>
             {
                 called = true;
                 actualLogMessage = e.Message;
             };
-            Tailer tailer = new Tailer(logName, callback, null, null);
+            EventLogSubscription tailer = new EventLogSubscription(logName, callback, null, null);
             tailer.Start();
 
             string expectedLogMessage = Guid.NewGuid().ToString();
@@ -79,7 +79,7 @@ namespace Tailer.Tests
         public void HandlesCallbackExceptionTest()
         {
             bool called = false;
-            Tailer.OnEntryWritten callback = (e) =>
+            EventLogSubscription.OnEntryWritten callback = (e) =>
             {
                 called = true;
                 throw new Exception("My Exception");
@@ -87,7 +87,7 @@ namespace Tailer.Tests
 
             StringWriter stdout = new StringWriter();
             StringWriter stderr = new StringWriter();
-            Tailer tailer = new Tailer(logName, callback, stdout, stderr);
+            EventLogSubscription tailer = new EventLogSubscription(logName, callback, stdout, stderr);
             tailer.Start();
 
             testLog.WriteEntry(Guid.NewGuid().ToString());
@@ -109,7 +109,7 @@ namespace Tailer.Tests
 
             bool called = false;
             List<string> msgs = new List<string>();
-            Tailer.OnEntryWritten callback = (e) =>
+            EventLogSubscription.OnEntryWritten callback = (e) =>
             {
                 msgs.Add(e.Message);
                 if (e.Message == lastMessage)
@@ -118,7 +118,7 @@ namespace Tailer.Tests
                 }
             };
 
-            using (Tailer tailer = new Tailer(logName, callback, null, null))
+            using (EventLogSubscription tailer = new EventLogSubscription(logName, callback, null, null))
             {
                 string oldLogMessage = Guid.NewGuid().ToString();
                 for (int i = 0; i < 5; i++)

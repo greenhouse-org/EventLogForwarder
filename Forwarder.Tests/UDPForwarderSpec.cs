@@ -18,7 +18,7 @@ namespace Forwarder.Tests
         EventLog testLog;
         private int port;
         private UDPForwarder syslog;
-        private Tailer.Tailer tailer;
+        private Tailer.EventLogSubscription tailer;
         private SimpleUDPServer server;
 
         public UDPForwarderSpec()
@@ -27,7 +27,7 @@ namespace Forwarder.Tests
 
             port = new Random().Next(5000, 50000);
             syslog = new UDPForwarder("localhost", port);
-            tailer = new Tailer.Tailer(logName, syslog.Write, null, null);
+            tailer = new Tailer.EventLogSubscription(logName, syslog.Write, null, null);
         }
 
         [Fact]

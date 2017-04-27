@@ -17,7 +17,7 @@ namespace Forwarder.Tests
         EventLog testLog;
         private int port;
         private TCPForwarder syslog;
-        private Tailer.Tailer tailer;
+        private Tailer.EventLogSubscription tailer;
         private SimpleTCPServer server;
 
         public TCPForwarderSpec()
@@ -38,7 +38,7 @@ namespace Forwarder.Tests
             }, Encoding.UTF8);
             server.Start();
             syslog = new TCPForwarder("localhost", port);
-            tailer = new Tailer.Tailer(logName, syslog.Write, null, null);
+            tailer = new Tailer.EventLogSubscription(logName, syslog.Write, null, null);
 
             using (server)
             {
@@ -70,7 +70,7 @@ namespace Forwarder.Tests
             }, Encoding.UTF8);
             server.Start();
             syslog = new TCPForwarder("localhost", port);
-            tailer = new Tailer.Tailer(logName, syslog.Write, null, null);
+            tailer = new Tailer.EventLogSubscription(logName, syslog.Write, null, null);
 
             using (server)
             {
@@ -111,7 +111,7 @@ namespace Forwarder.Tests
             server.Start();
 
             syslog = new TCPForwarder("localhost", port);
-            tailer = new Tailer.Tailer(logName, syslog.Write, null, null);
+            tailer = new Tailer.EventLogSubscription(logName, syslog.Write, null, null);
 
             using (server)
             {
