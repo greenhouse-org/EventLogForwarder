@@ -49,6 +49,10 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Forwarder\Forwarder.csproj">
+      <Project>{8F01AA7A-1BB1-4DD8-BA9F-28591AC8D959}</Project>
+      <Name>Forwarder</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Tailer\Tailer.csproj">
       <Project>{A10C87B0-142D-446C-8F08-8463B909EC25}</Project>
       <Name>Tailer</Name>
