@@ -56,7 +56,7 @@ namespace Forwarder.Tests
             }
         }
 
-        [Fact]
+        [Fact(Skip = "Tcp is not yet implemented")]
         public void MultipleEventTest()
         {
             const string expected = "Hello, 普通话/普通話!";
@@ -96,7 +96,7 @@ namespace Forwarder.Tests
             }
         }
 
-        [Fact]
+        [Fact(Skip = "Tcp is not yet implemented")]
         public void ReconnectTest()
         {
             const string expected = "Hello, 普通话/普通話!";
