@@ -24,12 +24,15 @@ namespace Forwarder.Tests
         {
             CreateTempEventLog();
             port = new Random().Next(5000, 50000);
+            // WARN WARN WARN
+            //port = 8090;
         }
 
         [Fact]
         public void SingleEventTest()
         {
-            const string expected = "Hello, 普通话/普通話!";
+            //const string expected = "Hello, 普通话/普通話!";
+            const string expected = "SingleEventTest";
 
             string message = "";
             server = new SimpleTCPServer(port, x =>
@@ -37,6 +40,7 @@ namespace Forwarder.Tests
                 message = x;
             }, Encoding.UTF8);
             server.Start();
+
             syslog = new TCPForwarder("localhost", port);
             tailer = new Tailer.EventLogSubscription(logName, syslog.Write, null, null);
 
@@ -45,6 +49,9 @@ namespace Forwarder.Tests
                 tailer.Start();
 
                 testLog.WriteEntry(expected);
+                Thread.Sleep(20);
+
+                syslog.Close(); // TODO: Make this cleaner
 
                 int limit = 40;
                 while (message == "" && limit-- > 0)
@@ -52,14 +59,49 @@ namespace Forwarder.Tests
                     Thread.Sleep(250);
                 }
                 Assert.Contains(expected, message);
-                Assert.EndsWith("\n", message);
+
+                // We're using ReadLine to get the messages, 
+                // which trims the terminating new line.
+                //
+                //Assert.EndsWith("\n", s);
             }
         }
 
-        [Fact(Skip = "Tcp is not yet implemented")]
+        // Garbage test used for debugging only
+        //
+        [Fact(Skip = "GolangTest is for debugging")]
+        public void GolangTest()
+        {
+            const string expected = "GolangTest";
+            const int numMsgs = 500;
+            const int sendInterval = 20; // 20MS
+
+            // WARN WARN WARN 
+            port = 8090;
+            syslog = new TCPForwarder("localhost", port);
+            tailer = new Tailer.EventLogSubscription(logName, syslog.Write, null, null);
+
+            using (server)
+            {
+                tailer.Start();
+
+                for (int i = 0; i < numMsgs; i++)
+                {
+                    testLog.WriteEntry(expected);
+                    Thread.Sleep(sendInterval);
+                }
+            }
+
+            int callCount = syslog.CallCount;
+            int exCount = syslog.ExceptionCount;
+            Assert.Equal(syslog.CallCount, 1000); // Fail this thing
+        }
+
+        [Fact]
         public void MultipleEventTest()
         {
-            const string expected = "Hello, 普通话/普通話!";
+            //const string expected = "Hello, 普通话/普通話!";
+            const string expected = "MultipleEventTest";
             const int numMsgs = 500;
             const int sendInterval = 20; // 20MS
 
@@ -69,6 +111,7 @@ namespace Forwarder.Tests
                 msgs.Add(x);
             }, Encoding.UTF8);
             server.Start();
+
             syslog = new TCPForwarder("localhost", port);
             tailer = new Tailer.EventLogSubscription(logName, syslog.Write, null, null);
 
@@ -87,19 +130,30 @@ namespace Forwarder.Tests
                 {
                     Thread.Sleep(250);
                 }
+
+                // WARN
+                syslog.Close();
+                int foo = syslog.CallCount;
+
                 Assert.Equal(numMsgs, msgs.Count);
                 foreach (string s in msgs)
                 {
                     Assert.Contains(expected, s);
-                    Assert.EndsWith("\n", s);
+
+                    // We're using ReadLine to get the messages, 
+                    // which trims the terminating new line.
+                    //
+                    //Assert.EndsWith("\n", s);
                 }
             }
         }
 
-        [Fact(Skip = "Tcp is not yet implemented")]
+        [Fact]
         public void ReconnectTest()
         {
-            const string expected = "Hello, 普通话/普通話!";
+            //const string expected = "Hello, 普通话/普通話!";
+            const string expected = "ReconnectTest";
+
             const int numMsgs = 500;
             const int sendInterval = 20; // 20MS
 
@@ -129,11 +183,20 @@ namespace Forwarder.Tests
                 {
                     Thread.Sleep(250);
                 }
+
+                // WARN
+                syslog.Close();
+                int foo = syslog.CallCount;
+
                 Assert.Equal(numMsgs, msgs.Count);
                 foreach (string s in msgs)
                 {
                     Assert.Contains(expected, s);
-                    Assert.EndsWith("\n", s);
+
+                    // We're using ReadLine to get the messages, 
+                    // which trims the terminating new line.
+                    //
+                    //Assert.EndsWith("\n", s);
                 }
             }
         }

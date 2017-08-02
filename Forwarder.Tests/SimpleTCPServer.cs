@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -92,6 +93,11 @@ namespace Forwarder.Tests
                 {
                     TcpClient client = server.AcceptTcpClient();
                     NetworkStream stream = client.GetStream();
+                    
+                    // WARN: This is likely wrong when reading lines,
+                    // i.e. we should crash every X lines otherwise we
+                    // won't crash at all.
+                    //
                     // Close the connection - crash
                     if (crashy && crashInterval++ % 7 == 0)
                     {
@@ -100,20 +106,27 @@ namespace Forwarder.Tests
                         continue;
                     }
 
-                    message.Clear();
-                    int i;
-                    while ((i = stream.Read(buffer, 0, buffer.Length)) != 0)
+                    using (StreamReader sr = new StreamReader(stream, encoding))
                     {
-                        message.AddRange(buffer.Take(i).ToArray());
-                    }
-                    this.handler(encoding.GetString(message.ToArray()));
+                        string line;
+                        while ((line = sr.ReadLine()) != null)
+                        {
+                            this.handler(line);
+                        }
+                    }                    
+
+                    stream.Close();
                     client.Close();
                 }
             }
-            catch (SocketException)
+            catch (SocketException ex)
             {
                 // ignore - we closed the connection
                 return;
+            }
+            catch (Exception ex)
+            {
+                // Great...
             }
         }
     }
