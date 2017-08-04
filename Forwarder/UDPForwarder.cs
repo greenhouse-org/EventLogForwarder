@@ -6,7 +6,7 @@ using System.Net.Sockets;
 namespace Forwarder
 {
 
-    public class UDPForwarder : Forwarder
+    public class UDPForwarder : Forwarder, IForwarderInterface
     {
         private UdpClient client;
         private string hostname;

@@ -10,17 +10,35 @@ namespace EventLogForwarder
     {
         public static void Main(string[] args)
         {
-            if (args.Length != 2)
-                throw new ArgumentException("Usage: url port");
-            var url = args[0];
-            var port = int.Parse(args[1]);
+            if (args.Length != 3)
+            {
+                throw new ArgumentException("Usage: [tcp|udp] url port");
+            }
 
-            string[] logsToListenTo = new[] { "Application", "Security", "System" };
-            var forwarder = new UDPForwarder(url, port);
+            var protocol = args[0];
+            var url = args[1];
+            var port = int.Parse(args[2]);
+
+            IForwarderInterface forwarder;
+            if (protocol == "udp")
+            {
+                forwarder = new UDPForwarder(url, port);
+            }
+            else if (protocol == "tcp")
+            {
+                forwarder = new TCPForwarder(url, port);
+            }
+            else
+            {
+                throw new ArgumentException("Protocol must be either 'tcp' or 'udp' got: {0}", protocol);
+            }
+
             var stdout = Console.Out;
             var stderr = Console.Error;
 
-            foreach(var logToListenTo in logsToListenTo)
+            string[] logsToListenTo = new[] { "Application", "Security", "System" };
+
+            foreach (var logToListenTo in logsToListenTo)
             {
                 var subscription = new EventLogSubscription(logToListenTo, forwarder.Write, stdout, stderr);
                 subscription.Start();
@@ -30,7 +48,7 @@ namespace EventLogForwarder
 
             while (true)
             {
-                Thread.Yield();
+                Thread.Sleep(3600000); // 1 Hour
             }
         }
 

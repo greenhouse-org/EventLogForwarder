@@ -158,7 +158,7 @@ namespace Forwarder.Tests
             List<string> msgs = new List<string>();
             server = new SimpleTCPServer(port, x =>
             {
-                lock(msgs)
+                lock (msgs)
                 {
                     msgs.Add(x);
                 }

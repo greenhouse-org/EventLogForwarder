@@ -4,7 +4,7 @@ using System.Net.Sockets;
 
 namespace Forwarder
 {
-    public class TCPForwarder : Forwarder
+    public class TCPForwarder : Forwarder, IForwarderInterface
     {
         private TcpClient client;
         private NetworkStream stream;
