@@ -1,6 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -11,13 +10,17 @@ namespace Forwarder.Tests
     public class SimpleTCPServer : IDisposable
     {
         public delegate void DatagramReceiveHandler(string data);
-        public bool crashy { get; set; }
+        public bool Crashy { get; set; }
+
         private bool running = false;
         private bool disposed = false;
+        private IPEndPoint endPoint;
         private readonly DatagramReceiveHandler handler;
         private readonly Encoding encoding;
         private Thread serverThread;
         private TcpListener server;
+        private TcpClient client;
+        private NetworkStream stream;
 
         public SimpleTCPServer(int port, DatagramReceiveHandler handler)
             : this(port, handler, Encoding.Unicode)
@@ -26,11 +29,17 @@ namespace Forwarder.Tests
 
         public SimpleTCPServer(int port, DatagramReceiveHandler handler, Encoding encoding)
         {
-            var localIPEndPoint = new IPEndPoint(IPAddress.Loopback, port);
-            server = new TcpListener(localIPEndPoint);
+            endPoint = new IPEndPoint(IPAddress.Loopback, port);
+            server = new TcpListener(endPoint);
 
             this.handler = handler;
             this.encoding = encoding;
+        }
+
+        public void Restart()
+        {
+            server = new TcpListener(endPoint);
+            Start();
         }
 
         public void Start()
@@ -55,6 +64,9 @@ namespace Forwarder.Tests
                 {
                     server.Stop();
                 }
+                stream?.Close();
+                client?.Close();
+                server?.Stop();
                 if (serverThread != null)
                 {
                     serverThread.Join();
@@ -78,36 +90,63 @@ namespace Forwarder.Tests
             Dispose(true);
         }
 
+        private void StreamMessages()
+        {
+            int crashInterval = 1;
+            bool crashed = false;
+
+            client = server.AcceptTcpClient();
+            stream = client.GetStream();
+
+            try
+            {
+                using (StreamReader sr = new StreamReader(stream, encoding))
+                {
+                    string line;
+                    while ((line = sr.ReadLine()) != null)
+                    {
+                        if (Crashy && crashInterval++ % 7 == 0)
+                        {
+                            crashed = true;
+                            stream.Close();
+                        }
+                        this.handler(line);
+                    }
+                }
+            }
+            catch (ObjectDisposedException ex)
+            {
+                if (!crashed)
+                {
+                    throw ex;
+                }
+                return;
+            }
+            catch (IOException ex)
+            {
+                // Thrown when we crash/stop the server
+                if (!crashed && running)
+                {
+                    throw ex;
+                }
+            }
+            finally
+            {
+                if (!crashed)
+                {
+                    client.Close();
+                }
+            }
+        }
+
         private void startServer()
         {
             try
             {
-                int crashInterval = 0;
                 server.Start();
-
-                byte[] buffer = new byte[4096];
-                List<byte> message = new List<byte>();
-
                 while (running)
                 {
-                    TcpClient client = server.AcceptTcpClient();
-                    NetworkStream stream = client.GetStream();
-                    // Close the connection - crash
-                    if (crashy && crashInterval++ % 7 == 0)
-                    {
-                        stream.Close();
-                        client.Close();
-                        continue;
-                    }
-
-                    message.Clear();
-                    int i;
-                    while ((i = stream.Read(buffer, 0, buffer.Length)) != 0)
-                    {
-                        message.AddRange(buffer.Take(i).ToArray());
-                    }
-                    this.handler(encoding.GetString(message.ToArray()));
-                    client.Close();
+                    StreamMessages();
                 }
             }
             catch (SocketException)
