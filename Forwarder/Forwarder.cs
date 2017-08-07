@@ -4,12 +4,16 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Xml;
+using Newtonsoft.Json;
 
 namespace Forwarder
 {
-
     public class Forwarder
     {
+        private ByteBuffer buf = new ByteBuffer(Encoding.UTF8);
+        private string hostname;
+        private int pid = 0;
+
         public string LogName { get; }
         public Priority Facility { get; } = 0;
 
@@ -83,24 +87,16 @@ namespace Forwarder
             return PRI(severity, facility);
         }
 
-        // WARN: Implement
-        // private string StructeredData() { return null; }
-
-        public byte[] FormatMessage(EventLogEntry entry)
+        private string GetHostname()
         {
-            int pri = ParseEntryPRI(entry, Facility);
-            return FormatMessage(Priority.LOG_DEBUG, entry.Source, entry.Message);
-        }
+            if (!string.IsNullOrEmpty(this.hostname))
+            {
+                return this.hostname;
+            }
 
-        public static byte[] FormatMessage(Priority p, string appName, string message)
-        {
-            string utcNow = XmlConvert.ToString(DateTime.UtcNow, XmlDateTimeSerializationMode.Utc);
-
-            // TODO: Store the hostname - so we don't have to keep getting it.
-            // Also, only the BOSH-Agent has the canonical IP address - see if
-            // we can get it from there.
             string hostname = Dns.GetHostName();
-            var host = Dns.GetHostEntry(hostname);
+            IPHostEntry host = Dns.GetHostEntry(hostname);
+
             foreach (var ip in host.AddressList)
             {
                 if (ip.AddressFamily == AddressFamily.InterNetwork)
@@ -110,45 +106,63 @@ namespace Forwarder
                 }
             }
 
+            this.hostname = hostname;
+            return hostname;
+        }
+
+        private int GetPID()
+        {
+            if (pid != 0)
+            {
+                return pid;
+            }
+            pid = Process.GetCurrentProcess().Id;
+            return pid;
+        }
+
+        public byte[] FormatMessage(EventLogEntry entry)
+        {
+            int pri = ParseEntryPRI(entry, Facility);
+            return FormatMessage(Priority.LOG_DEBUG, entry.Source, entry.Message);
+        }
+
+        public byte[] FormatMessage(Priority p, string appName, string message)
+        {
+            const string messageID = "-"; // TODO
+            const string structuredData = "-"; // TODO
+
+            // UTF-8 Byte Order Mask: %xEF.BB.BF
+            byte[] BOM = { 0xEF, 0xBB, 0xBF };
+
+            string utcNow = XmlConvert.ToString(DateTime.UtcNow, XmlDateTimeSerializationMode.Utc);
+
+            string hostname = GetHostname();
+
             if (string.IsNullOrEmpty(appName))
             {
                 appName = "-";
             }
 
-            const string messageID = "-"; // TODO
+            int pid = GetPID();
 
-            const string structuredData = "-"; // TODO
+            buf.Reset();
+            buf.Write($"<{(int)p}>1 {utcNow} {hostname} {appName} {pid} {messageID} {structuredData} ", Encoding.ASCII);
 
-            // TODO: save this value, only retrieve once
-            int pid = Process.GetCurrentProcess().Id;
-
-            string suffix = "\n";
-            if (message.EndsWith("\n"))
+            if (!string.IsNullOrEmpty(message))
             {
-                suffix = "";
+                buf.Write(BOM);
+                using (JsonTextWriter w = new JsonTextWriter(buf))
+                {
+                    w.WriteStartObject();
+                    w.WritePropertyName("message");
+                    w.WriteValue(message);
+                    w.WriteEndObject();
+                }
             }
 
-            // UTF-8 Byte Order Mask: %xEF.BB.BF
-            byte[] BOM = { 0xEF, 0xBB, 0xBF };
-
-            byte[] header = Encoding.UTF8.GetBytes($"<{(int)p}>1 {utcNow} {hostname} {appName} {pid} {messageID} {structuredData} ");
-            if (string.IsNullOrEmpty(message))
-            {
-                // WARN (CEV): Don't really do this.
-                header[header.Length - 1] = (byte)'\n';
-                return header;
-            }
-
-            byte[] msgbuf = Encoding.UTF8.GetBytes($"{message}{suffix}");
-            byte[] buffer = new byte[header.Length + msgbuf.Length + BOM.Length];
-            header.CopyTo(buffer, 0);
-            BOM.CopyTo(buffer, header.Length);
-            msgbuf.CopyTo(buffer, header.Length + BOM.Length);
-            return buffer;
-
-            //string buf = $"<{(int)p}>1 {utcNow} {hostname} {appName} {pid} {messageID} {structuredData} {BOM}{message}{suffix}";
-
-            //return Encoding.UTF8.GetBytes(buf);
+            // Newline
+            buf.Write('\n');
+            return buf.GetBytes();
         }
     }
 }

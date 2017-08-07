@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using Xunit;
+using Newtonsoft.Json;
 
 namespace Forwarder.Tests
 {
@@ -55,6 +56,19 @@ namespace Forwarder.Tests
             }
         }
 
+        private string MessageSuffix(string message)
+        {
+            ByteBuffer buf = new ByteBuffer(Encoding.UTF8);
+            using (JsonTextWriter w = new JsonTextWriter(buf))
+            {
+                w.WriteStartObject();
+                w.WritePropertyName("message");
+                w.WriteValue(message);
+                w.WriteEndObject();
+            }
+            return buf.ToString();
+        }
+
         [Fact]
         public void MultipleEventTest()
         {
@@ -91,8 +105,8 @@ namespace Forwarder.Tests
 
                 for (int i = 0; i < numMsgs; i++)
                 {
-                    string suffix = string.Format("{0}: {1}", expected, i);
-                    int count = msgs.Count(s => s.EndsWith(suffix));
+                    string suffix = MessageSuffix(string.Format("{0}: {1}", expected, i));
+                    int count = msgs.Count(s => s.Contains(suffix));
                     Assert.Equal(1, count);
                 }
             }
@@ -229,7 +243,7 @@ namespace Forwarder.Tests
 
                 for (int i = 0; i < numMsgs; i++)
                 {
-                    string suffix = String.Format("{0}: {1}", StableMessage, i);
+                    string suffix = MessageSuffix(String.Format("{0}: {1}", StableMessage, i));
                     int count = msgs.Count(s => s.EndsWith(suffix));
                     Assert.Equal(1, count);
                 }

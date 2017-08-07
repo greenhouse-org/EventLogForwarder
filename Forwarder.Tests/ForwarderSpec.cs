@@ -1,19 +1,22 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Xml;
 using Xunit;
+using Newtonsoft.Json;
 
 namespace Forwarder.Tests
 {
     public class ForwarderSpec : IDisposable
     {
+        public Forwarder forwarder;
 
-
-        public ForwarderSpec() { }
+        public ForwarderSpec()
+        {
+            forwarder = new Forwarder();
+        }
 
         public void Dispose() { }
 
@@ -59,7 +62,7 @@ namespace Forwarder.Tests
         [Fact]
         public void EndsWithNewlineTest()
         {
-            byte[] formattedMsg = Forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "app", "foo");
+            byte[] formattedMsg = forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "app", "foo");
             string actual = Encoding.UTF8.GetString(formattedMsg);
             Assert.EndsWith("\n", actual);
         }
@@ -67,7 +70,7 @@ namespace Forwarder.Tests
         [Fact]
         public void PriorityAndSyslogVersionTest()
         {
-            byte[] formattedMsg = Forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "app", "foo");
+            byte[] formattedMsg = forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "app", "foo");
             string actual = Encoding.UTF8.GetString(formattedMsg);
             Assert.StartsWith("<7>1", actual);
         }
@@ -75,7 +78,7 @@ namespace Forwarder.Tests
         [Fact]
         public void TimestampTest()
         {
-            byte[] formattedMsg = Forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "app", "foo");
+            byte[] formattedMsg = forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "app", "foo");
             string actual = Encoding.UTF8.GetString(formattedMsg);
             actual = actual.Substring("<0>1 ".Length);
             string timestamp = actual.Substring(0, actual.IndexOf(" "));
@@ -90,7 +93,7 @@ namespace Forwarder.Tests
         [Fact]
         public void HostnameTest()
         {
-            byte[] formattedMsg = Forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "app", "foo");
+            byte[] formattedMsg = forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "app", "foo");
             string actual = Encoding.UTF8.GetString(formattedMsg);
             string[] msgParts = actual.Split(' ');
 
@@ -112,7 +115,7 @@ namespace Forwarder.Tests
         public void AppNameTest()
         {
             const string AppName = "MyApp";
-            byte[] formattedMsg = Forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, AppName, "foo");
+            byte[] formattedMsg = forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, AppName, "foo");
             string actual = Encoding.UTF8.GetString(formattedMsg);
             string[] msgParts = actual.Split(' ');
 
@@ -122,7 +125,7 @@ namespace Forwarder.Tests
         [Fact]
         public void EmptyAppNameTest()
         {
-            byte[] formattedMsg = Forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "", "foo");
+            byte[] formattedMsg = forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "", "foo");
             string actual = Encoding.UTF8.GetString(formattedMsg);
             string[] msgParts = actual.Split(' ');
 
@@ -132,7 +135,7 @@ namespace Forwarder.Tests
         [Fact]
         public void PidTest()
         {
-            byte[] formattedMsg = Forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "app", "foo");
+            byte[] formattedMsg = forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "app", "foo");
             string actual = Encoding.UTF8.GetString(formattedMsg);
             string[] msgParts = actual.Split(' ');
 
@@ -142,7 +145,7 @@ namespace Forwarder.Tests
         [Fact]
         public void MessageIdTest()
         {
-            byte[] formattedMsg = Forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "app", "foo");
+            byte[] formattedMsg = forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "app", "foo");
             string actual = Encoding.UTF8.GetString(formattedMsg);
             string[] msgParts = actual.Split(' ');
 
@@ -152,7 +155,7 @@ namespace Forwarder.Tests
         [Fact]
         public void StructuredDataTest()
         {
-            byte[] formattedMsg = Forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "app", "foo");
+            byte[] formattedMsg = forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "app", "foo");
             string actual = Encoding.UTF8.GetString(formattedMsg);
             string[] msgParts = actual.Split(' ');
 
@@ -163,7 +166,7 @@ namespace Forwarder.Tests
         public void UTF8BOMTest()
         {
             // Ensure the UTF-8 BOM precedes the message section of the log record.
-            byte[] b = Forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "", "foo");
+            byte[] b = forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "", "foo");
 
             Assert.Equal(1, BOMCount(b));
         }
@@ -172,7 +175,7 @@ namespace Forwarder.Tests
         public void EmptyMessageTest()
         {
             // The UTF-8 BOM should not be present when there is no message.
-            byte[] b = Forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "", "");
+            byte[] b = forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "", "");
             Assert.Equal(0, BOMCount(b));
         }
 
@@ -180,11 +183,23 @@ namespace Forwarder.Tests
         public void SimpleMessageTest()
         {
             const string message = "hello, world!";
-            byte[] formattedMsg = Forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "", message);
+
+            ByteBuffer buf = new ByteBuffer(Encoding.UTF8);
+            using (JsonTextWriter w = new JsonTextWriter(buf))
+            {
+                w.WriteStartObject();
+                w.WritePropertyName("message");
+                w.WriteValue(message);
+                w.WriteEndObject();
+            }
+            buf.Write('\n');
+
+            byte[] formattedMsg = forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "", message);
             string actual = Encoding.UTF8.GetString(formattedMsg);
 
-            Assert.EndsWith($"{message}\n", actual);
+            Assert.EndsWith(buf.ToString(), actual);
         }
+
         /// <summary>
         /// Returns the number of UTF-8 Byte Order Masks (BOM) in byte[] b. 
         /// </summary>
