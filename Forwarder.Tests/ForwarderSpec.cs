@@ -125,11 +125,71 @@ namespace Forwarder.Tests
         [Fact]
         public void EmptyAppNameTest()
         {
-            byte[] formattedMsg = forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "", "foo");
+            string[] sourceNames = { null, "" };
+            foreach (string source in sourceNames)
+            {
+                byte[] formattedMsg = forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "", "foo");
+                string actual = Encoding.UTF8.GetString(formattedMsg);
+                string[] msgParts = actual.Split(' ');
+
+                Assert.Equal("-", msgParts[3]);
+            }
+        }
+
+        [Fact]
+        public void AppNameSpaceTest()
+        {
+            // The APP-NAME may not contain spaces
+            const string Source = "My App";
+            const string Expected = "My_App";
+
+            byte[] formattedMsg = forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, Source, "foo");
             string actual = Encoding.UTF8.GetString(formattedMsg);
             string[] msgParts = actual.Split(' ');
 
-            Assert.Equal("-", msgParts[3]);
+            Assert.Equal(Expected, msgParts[3]);
+        }
+
+        [Fact]
+        public void AppNameLengthTest()
+        {
+            // The APP-NAME cannot be longer than 48 chars
+            string[] sourceNames =
+            {
+                "Microsoft-Windows-DriverFrameworks-UserMode-Super-Long-Source-Name-FTW",
+                "Microsoft Windows DriverFrameworks UserMode Super Long Source Name FTW"
+            };
+            string[] expectedNames =
+            {
+                "Microsoft-Windows-DriverFrameworks-UserMode-Supe",
+                "Microsoft_Windows_DriverFrameworks_UserMode_Supe"
+            };
+
+            for (int i = 0; i < sourceNames.Length; i++)
+            {
+                string source = sourceNames[i];
+                string expected = expectedNames[i];
+
+                byte[] formattedMsg = forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, source, "foo");
+                string actual = Encoding.UTF8.GetString(formattedMsg);
+                string[] msgParts = actual.Split(' ');
+
+                Assert.Equal(expected, msgParts[3]);
+            }
+        }
+
+        [Fact]
+        public void AppNameASCIITest()
+        {
+            // The APP-NAME must be ASCII encoded
+            const string Source = "Service 普通话普通話";
+            const string Expected = "Service_??????";
+
+            byte[] formattedMsg = forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, Source, "foo");
+            string actual = Encoding.UTF8.GetString(formattedMsg);
+            string[] msgParts = actual.Split(' ');
+
+            Assert.Equal(Expected, msgParts[3]);
         }
 
         [Fact]
@@ -182,22 +242,35 @@ namespace Forwarder.Tests
         [Fact]
         public void SimpleMessageTest()
         {
-            const string message = "hello, world!";
-
-            ByteBuffer buf = new ByteBuffer(Encoding.UTF8);
-            using (JsonTextWriter w = new JsonTextWriter(buf))
+            string[] messages =
             {
-                w.WriteStartObject();
-                w.WritePropertyName("message");
-                w.WriteValue(message);
-                w.WriteEndObject();
+                "hello, world!",
+
+                // The header must be ASCII encoded, but 
+                // UTF8 is permitted in the message body
+                "Service 普通话普通話",
+                "🙈 🙉 🙊"
+            };
+
+            foreach (string msg in messages)
+            {
+                ByteBuffer buf = new ByteBuffer(Encoding.UTF8);
+                using (JsonTextWriter w = new JsonTextWriter(buf))
+                {
+                    w.WriteStartObject();
+                    w.WritePropertyName("message");
+                    w.WriteValue(msg);
+                    w.WritePropertyName("source");
+                    w.WriteValue("");
+                    w.WriteEndObject();
+                }
+                buf.Write('\n');
+
+                byte[] formattedMsg = forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "", msg);
+                string actual = Encoding.UTF8.GetString(formattedMsg);
+
+                Assert.EndsWith(buf.ToString(), actual);
             }
-            buf.Write('\n');
-
-            byte[] formattedMsg = forwarder.FormatMessage(Forwarder.Priority.LOG_DEBUG, "", message);
-            string actual = Encoding.UTF8.GetString(formattedMsg);
-
-            Assert.EndsWith(buf.ToString(), actual);
         }
 
         /// <summary>

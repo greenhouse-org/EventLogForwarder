@@ -64,6 +64,8 @@ namespace Forwarder.Tests
                 w.WriteStartObject();
                 w.WritePropertyName("message");
                 w.WriteValue(message);
+                w.WritePropertyName("source");
+                w.WriteValue(eventSource);
                 w.WriteEndObject();
             }
             return buf.ToString();

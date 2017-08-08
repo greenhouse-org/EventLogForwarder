@@ -87,6 +87,25 @@ namespace Forwarder
             return PRI(severity, facility);
         }
 
+        private static string FormatAppName(string source)
+        {
+            const int MaxLength = 48;
+
+            if (string.IsNullOrEmpty(source))
+            {
+                return "-";
+            }
+            if (source.Contains(" "))
+            {
+                source = source.Replace(' ', '_');
+            }
+            if (source.Length > MaxLength)
+            {
+                source = source.Substring(0, MaxLength);
+            }
+            return source;
+        }
+
         private string GetHostname()
         {
             if (!string.IsNullOrEmpty(this.hostname))
@@ -126,7 +145,7 @@ namespace Forwarder
             return FormatMessage(Priority.LOG_DEBUG, entry.Source, entry.Message);
         }
 
-        public byte[] FormatMessage(Priority p, string appName, string message)
+        public byte[] FormatMessage(Priority p, string source, string message)
         {
             const string messageID = "-"; // TODO
             const string structuredData = "-"; // TODO
@@ -138,10 +157,7 @@ namespace Forwarder
 
             string hostname = GetHostname();
 
-            if (string.IsNullOrEmpty(appName))
-            {
-                appName = "-";
-            }
+            string appName = FormatAppName(source);
 
             int pid = GetPID();
 
@@ -156,6 +172,8 @@ namespace Forwarder
                     w.WriteStartObject();
                     w.WritePropertyName("message");
                     w.WriteValue(message);
+                    w.WritePropertyName("source");
+                    w.WriteValue(source);
                     w.WriteEndObject();
                 }
             }
