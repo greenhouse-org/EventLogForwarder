@@ -126,7 +126,7 @@ namespace Tailer.Tests
                     testLog.WriteEntry(oldLogMessage);
                 }
 
-                //Tailer tailer = new Tailer(logName, callback, null, null);
+                Tailer tailer = new Tailer(logName, callback, null, null);
                 tailer.Start();
 
                 testLog.WriteEntry(lastMessage);
@@ -141,10 +141,5 @@ namespace Tailer.Tests
                 Assert.Equal(1, msgs.Count);
             }
         }
-
-        // [Fact]
-        // public void WhenEventLogIsFullTest()
-        // {
-        // }
     }
 }
